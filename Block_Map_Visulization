@@ -1,0 +1,200 @@
+
+######## Import the necessary package
+import pandas as pd
+import numpy as np
+from folium.plugins import HeatMap
+import folium
+import os
+import requests
+import sys
+from math import sin, cos, sqrt, atan2, radians
+import math
+import matplotlib.pyplot as plt
+from sklearn.cluster import DBSCAN
+from geopy.distance import geodesic
+from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
+import seaborn as sns  
+from polygon_geohasher.polygon_geohasher import geohash_to_polygon
+import geopandas as gpd
+import prestodb 
+from prestodb import dbapi
+import json
+
+
+###############
+##### 历史报单热区
+for city in new_city:
+    ## 获得城市中心
+    city_center = get_center(city)
+
+    #### Mini
+    mini_city_data = all_city_data[(all_city_data['city_name']==city)&(all_city_data['rank_1']<=100)&(all_city_data['channel_new']=='mini')]
+    mini_pick_data = mini_city_data[['long_geohash6','avg_cnt']]  ## 取geohash6区块编码和对应该区块内的冒泡数
+    mini_gdf = gpd.GeoDataFrame(mini_pick_data)
+    mini_gdf['geometry'] = mini_gdf['long_geohash6'].apply(geohash_to_polygon)  
+    mini_gdf.crs = {'init': 'epsg:4326'}
+    json.loads(mini_gdf.to_json())['features'][0]
+
+    ## Setting legend threshold scale
+    mini_thre_upper_bound = round(max(mini_city_data['avg_cnt']),0) 
+    mini_thre_1 = 0 + (mini_thre_upper_bound-0)*0.14
+    mini_thre_2 = 0 + (mini_thre_upper_bound-0)*0.28
+    mini_thre_3 = 0 + (mini_thre_upper_bound-0)*0.43
+    mini_thre_4 = 0 + (mini_thre_upper_bound-0)*0.57
+    mini_thre_5 = 0 + (mini_thre_upper_bound-0)*0.71
+    mini_thre_6 = 0 + (mini_thre_upper_bound-0)*0.86
+    mini_thre_scale = [0,mini_thre_1,mini_thre_2,mini_thre_3,mini_thre_4,mini_thre_5,mini_thre_6,mini_thre_upper_bound]
+    
+    #### App
+    app_city_data = all_city_data[(all_city_data['city_name']==city)&(all_city_data['rank_1']<=100)&(all_city_data['channel_new']=='app')]
+    app_pick_data = app_city_data[['long_geohash6','avg_cnt']]  ## 取geohash6区块编码和对应该区块内的冒泡数
+    app_gdf = gpd.GeoDataFrame(app_pick_data)
+    app_gdf['geometry'] = app_gdf['long_geohash6'].apply(geohash_to_polygon)  
+    app_gdf.crs = {'init': 'epsg:4326'}
+    json.loads(app_gdf.to_json())['features'][0]
+
+    ## Setting legend threshold scale
+    app_thre_upper_bound = round(max(app_city_data['avg_cnt']),0) 
+    app_thre_1 = 0 + (app_thre_upper_bound-0)*0.14
+    app_thre_2 = 0 + (app_thre_upper_bound-0)*0.28
+    app_thre_3 = 0 + (app_thre_upper_bound-0)*0.43
+    app_thre_4 = 0 + (app_thre_upper_bound-0)*0.57
+    app_thre_5 = 0 + (app_thre_upper_bound-0)*0.71
+    app_thre_6 = 0 + (app_thre_upper_bound-0)*0.86
+    app_thre_scale = [0,app_thre_1,app_thre_2,app_thre_3,app_thre_4,app_thre_5,app_thre_6,app_thre_upper_bound]
+
+    threshold_scale =  app_thre_scale if app_thre_upper_bound >= min_thre_upper_bound else min_thre_scale
+    
+
+    ## Mini热力图
+    str_name = 'Bubble Counts'
+    city_plot = folium.Map(location=[city_center[0], city_center[1]], zoom_start=12)
+    fg = folium.FeatureGroup(name='My Points', show=False)
+    folium.Choropleth(
+        geo_data = mini_gdf,
+        data = mini_gdf,
+        columns=['long_geohash6','avg_cnt'],
+        key_on='feature.properties.long_geohash6',
+        #fill_color='red',
+        fill_color='YlOrRd',
+        fill_opacity=0.7,
+        line_opacity=0.2,
+        highlight=True,
+        threshold_scale=threshold_scale,
+        name='mini',
+        show = True,
+    ).add_to(city_plot)
+
+    ### App 
+    folium.Choropleth(
+        geo_data = app_gdf,
+        data = app_gdf,
+        columns=['long_geohash6','avg_cnt'],
+        key_on='feature.properties.long_geohash6',
+        #fill_color='red',
+        fill_color='YlOrRd',
+        fill_opacity=0.7,
+        line_opacity=0.2,
+        highlight=True,
+        threshold_scale=threshold_scale,
+        name='app',
+        show = True,
+    ).add_to(city_plot)
+    
+    folium.LayerControl(collapsed=False).add_to(city_plot)
+
+    ### 导出HTML数据
+    city_plot.save(city+'_历史冒泡热区.html') 
+    
+    
+#########
+for city in ['宁波市']:
+    ## 获得城市中心
+    city_center = get_center(city)
+
+    #### Mini
+    mini_city_data = all_city_data[(all_city_data['city_name']==city)&(all_city_data['rank_1']<=100)&(all_city_data['channel_new']=='mini')]
+    mini_pick_data = mini_city_data[['long_geohash6','avg_cnt']]  ## 取geohash6区块编码和对应该区块内的冒泡数
+    mini_gdf = gpd.GeoDataFrame(mini_pick_data)
+    mini_gdf['geometry'] = mini_gdf['long_geohash6'].apply(geohash_to_polygon)  
+    mini_gdf.crs = {'init': 'epsg:4326'}
+    json.loads(mini_gdf.to_json())['features'][0]
+  
+    ## Setting legend threshold scale
+    mini_thre_upper_bound = round(max(mini_city_data['avg_cnt']),0) 
+    mini_thre_1 = 0 + (mini_thre_upper_bound-0)*0.14
+    mini_thre_2 = 0 + (mini_thre_upper_bound-0)*0.28
+    mini_thre_3 = 0 + (mini_thre_upper_bound-0)*0.43
+    mini_thre_4 = 0 + (mini_thre_upper_bound-0)*0.57
+    mini_thre_5 = 0 + (mini_thre_upper_bound-0)*0.71
+    mini_thre_6 = 0 + (mini_thre_upper_bound-0)*0.86
+    mini_thre_scale = [0,mini_thre_1,mini_thre_2,mini_thre_3,mini_thre_4,mini_thre_5,mini_thre_6,mini_thre_upper_bound]
+    
+    #### App
+    app_city_data = all_city_data[(all_city_data['city_name']==city)&(all_city_data['rank_1']<=100)&(all_city_data['channel_new']=='app')]
+    app_pick_data = app_city_data[['long_geohash6','avg_cnt']]  ## 取geohash6区块编码和对应该区块内的冒泡数
+    app_gdf = gpd.GeoDataFrame(app_pick_data)
+    app_gdf['geometry'] = app_gdf['long_geohash6'].apply(geohash_to_polygon)  
+    app_gdf.crs = {'init': 'epsg:4326'}
+    json.loads(app_gdf.to_json())['features'][0]
+
+    
+    ## Setting legend threshold scale
+    app_thre_upper_bound = round(max(app_city_data['avg_cnt']),0) 
+    app_thre_1 = 0 + (app_thre_upper_bound-0)*0.14
+    app_thre_2 = 0 + (app_thre_upper_bound-0)*0.28
+    app_thre_3 = 0 + (app_thre_upper_bound-0)*0.43
+    app_thre_4 = 0 + (app_thre_upper_bound-0)*0.57
+    app_thre_5 = 0 + (app_thre_upper_bound-0)*0.71
+    app_thre_6 = 0 + (app_thre_upper_bound-0)*0.86
+    app_thre_scale = [0,app_thre_1,app_thre_2,app_thre_3,app_thre_4,app_thre_5,app_thre_6,app_thre_upper_bound]
+
+    threshold_scale =  app_thre_scale if app_thre_upper_bound >= min_thre_upper_bound else min_thre_scale
+    
+    ## Mini热力图
+    str_name = 'Bubble Counts'
+    city_plot = folium.Map(location=[city_center[0], city_center[1]], zoom_start=12)
+    fg = folium.FeatureGroup(name='My Points', show=False)
+    folium.Choropleth(
+        geo_data = mini_gdf,
+        data = mini_gdf,
+        columns=['long_geohash6','avg_cnt'],
+        threshold_scale=threshold_scale,
+        key_on='feature.properties.long_geohash6',
+        #fill_color='red',
+        fill_color='YlOrRd',
+        fill_opacity=0.7,
+        line_opacity=0.2,
+        highlight=True,
+        control=True,
+        name='mini',
+        show = True,
+    ).add_to(city_plot)
+
+    ### App 
+    folium.Choropleth(
+        geo_data = app_gdf,
+        data = app_gdf,
+        columns=['long_geohash6','avg_cnt'],
+        key_on='feature.properties.long_geohash6',
+        #fill_color='red',
+        fill_color='YlOrRd',
+        fill_opacity=0.7,
+        line_opacity=0.2,
+        highlight=True,
+        threshold_scale=threshold_scale,
+        name='app',
+        show = True,
+    ).add_to(city_plot)
+    folium.LayerControl(collapsed=False).add_to(city_plot)  
+city_plot.save(city+'_历史冒泡热区.html') 
+
+
+
+
+
+
+
+
+
+
